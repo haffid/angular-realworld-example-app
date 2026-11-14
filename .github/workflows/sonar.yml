@@ -1,0 +1,58 @@
+name: Build Test and SonarQube Cloud
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-analyze:
+    name: Build Test and Analyze
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node for Angular 11
+        uses: actions/setup-node@v4
+        with:
+          node-version: "12.22.12"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Angular application
+        run: npm run build
+
+      - name: Run unit tests with coverage
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: >
+          npm test --
+          --watch=false
+          --browsers=ChromeHeadless
+          --code-coverage
+          --progress=false
+
+      - name: Verify coverage report
+        run: test -s coverage/lcov.info
+
+      - name: Set up Node for analysis
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: SonarQube Cloud Scan
+        uses: SonarSource/sonarqube-scan-action@v8.4.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
